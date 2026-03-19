@@ -1,0 +1,922 @@
+
+html_code = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiki - Video Downloader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated background particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(6, 182, 212, 0.3);
+            border-radius: 50%;
+            animation: float 15s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* Logo */
+        .logo-container {
+            position: relative;
+            z-index: 10;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .logo {
+            font-size: 4rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #06b6d4 0%, #d946ef 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -2px;
+            text-shadow: 0 0 40px rgba(6, 182, 212, 0.5);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
+        }
+
+        .tagline {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        /* Main Container */
+        .main-container {
+            position: relative;
+            z-index: 10;
+            width: 90%;
+            max-width: 700px;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        /* Search Bar Container */
+        .search-wrapper {
+            position: relative;
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 8px;
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            box-shadow: 
+                0 0 40px rgba(6, 182, 212, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .search-wrapper:focus-within {
+            border-color: rgba(6, 182, 212, 0.6);
+            box-shadow: 
+                0 0 60px rgba(6, 182, 212, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .search-inner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Platform Icon Indicator */
+        .platform-indicator {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.8);
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: scale(0.8);
+        }
+
+        .platform-indicator.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .platform-indicator.youtube { background: rgba(255, 0, 0, 0.2); }
+        .platform-indicator.tiktok { background: rgba(0, 0, 0, 0.4); border: 1px solid #ff0050; }
+        .platform-indicator.facebook { background: rgba(24, 119, 242, 0.2); }
+
+        .platform-indicator svg {
+            width: 28px;
+            height: 28px;
+            fill: currentColor;
+        }
+
+        /* Input Field */
+        .url-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #f1f5f9;
+            font-size: 1.1rem;
+            padding: 12px 8px;
+            font-family: inherit;
+        }
+
+        .url-input::placeholder {
+            color: #64748b;
+            transition: color 0.3s ease;
+        }
+
+        .url-input:focus::placeholder {
+            color: #94a3b8;
+        }
+
+        /* Buttons */
+        .btn {
+            border: none;
+            outline: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-auto-paste {
+            background: rgba(6, 182, 212, 0.1);
+            color: #06b6d4;
+            padding: 12px 20px;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+
+        .btn-auto-paste:hover {
+            background: rgba(6, 182, 212, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(6, 182, 212, 0.3);
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #06b6d4 0%, #d946ef 100%);
+            color: white;
+            padding: 14px 32px;
+            border-radius: 16px;
+            font-size: 1rem;
+            box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-download::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-download:hover::before {
+            left: 100%;
+        }
+
+        .btn-download:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 30px rgba(6, 182, 212, 0.5);
+        }
+
+        .btn-download:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        /* Platform Icons Section */
+        .platforms {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 2.5rem;
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+
+        .platform-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            filter: grayscale(100%);
+            opacity: 0.6;
+        }
+
+        .platform-icon:hover {
+            filter: grayscale(0%);
+            opacity: 1;
+            transform: translateY(-8px) scale(1.1);
+            background: rgba(30, 41, 59, 0.9);
+            box-shadow: 0 10px 40px rgba(6, 182, 212, 0.2);
+            border-color: rgba(6, 182, 212, 0.5);
+        }
+
+        .platform-icon svg {
+            width: 32px;
+            height: 32px;
+            fill: currentColor;
+        }
+
+        .platform-icon.youtube { color: #ff0000; }
+        .platform-icon.tiktok { color: #ff0050; }
+        .platform-icon.facebook { color: #1877f2; }
+
+        /* Error Message */
+        .error-message {
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-10px);
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            white-space: nowrap;
+        }
+
+        .error-message.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Loading Spinner */
+        .loading-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .loading-container.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 80px;
+            height: 80px;
+            position: relative;
+        }
+
+        .spinner-inner {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 4px solid transparent;
+            border-top-color: #06b6d4;
+            border-right-color: #d946ef;
+            animation: spin 1s linear infinite;
+        }
+
+        .spinner-inner:nth-child(2) {
+            width: 60px;
+            height: 60px;
+            top: 10px;
+            left: 10px;
+            animation-direction: reverse;
+            animation-duration: 1.5s;
+        }
+
+        .spinner-inner:nth-child(3) {
+            width: 40px;
+            height: 40px;
+            top: 20px;
+            left: 20px;
+            animation-duration: 2s;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #94a3b8;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* Video Preview Card */
+        .preview-card {
+            display: none;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            overflow: hidden;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .preview-card.active {
+            display: block;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .preview-image {
+            width: 100%;
+            height: 280px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preview-image::before {
+            content: '🎬';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4rem;
+            opacity: 0.3;
+        }
+
+        .preview-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-content {
+            padding: 1.5rem;
+        }
+
+        .preview-title {
+            color: #f1f5f9;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+        }
+
+        .preview-meta {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .quality-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .quality-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .quality-select {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            color: #f1f5f9;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2306b6d4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 20px;
+            padding-right: 40px;
+        }
+
+        .quality-select:focus {
+            border-color: #06b6d4;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+        }
+
+        .quality-select option {
+            background: #1e293b;
+            color: #f1f5f9;
+        }
+
+        .btn-save {
+            width: 100%;
+            background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+            color: white;
+            padding: 16px;
+            border-radius: 16px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(16, 185, 129, 0.5);
+        }
+
+        .btn-save::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-save:hover::before {
+            left: 100%;
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .logo { font-size: 3rem; }
+            .search-inner { flex-wrap: wrap; }
+            .url-input { width: 100%; order: -1; }
+            .btn-download { width: 100%; margin-top: 8px; }
+            .btn-auto-paste { padding: 10px 16px; font-size: 0.8rem; }
+            .platforms { gap: 1rem; }
+            .platform-icon { width: 50px; height: 50px; }
+            .preview-card { margin: 0 1rem; }
+        }
+
+        /* Success Animation */
+        .success-check {
+            display: none;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+            align-items: center;
+            justify-content: center;
+            animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .success-check.active {
+            display: flex;
+        }
+
+        .success-check svg {
+            width: 40px;
+            height: 40px;
+            stroke: white;
+            stroke-width: 3;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Particles -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Logo -->
+    <div class="logo-container">
+        <div class="logo">Tiki</div>
+        <div class="tagline">Universal Video Downloader</div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Input Section -->
+        <div id="inputSection">
+            <div class="search-wrapper">
+                <div class="search-inner">
+                    <div class="platform-indicator" id="platformIndicator">
+                        <!-- Icons injected by JS -->
+                    </div>
+                    <input type="text" class="url-input" id="urlInput" placeholder="Paste video link here..." autocomplete="off">
+                    <button class="btn btn-auto-paste" id="autoPasteBtn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Auto-Paste
+                    </button>
+                    <button class="btn btn-download" id="downloadBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Download
+                    </button>
+                </div>
+                <div class="error-message" id="errorMessage">Invalid URL. Please enter a valid YouTube, TikTok, or Facebook link.</div>
+            </div>
+
+            <!-- Platform Icons -->
+            <div class="platforms">
+                <div class="platform-icon youtube" title="YouTube">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                </div>
+                <div class="platform-icon tiktok" title="TikTok">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+                    </svg>
+                </div>
+                <div class="platform-icon facebook" title="Facebook">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Section -->
+        <div class="loading-container" id="loadingSection">
+            <div class="spinner">
+                <div class="spinner-inner"></div>
+                <div class="spinner-inner"></div>
+                <div class="spinner-inner"></div>
+            </div>
+            <div class="loading-text">ANALYZING VIDEO...</div>
+        </div>
+
+        <!-- Success Check -->
+        <div class="success-check" id="successCheck">
+            <svg viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        </div>
+
+        <!-- Preview Card -->
+        <div class="preview-card" id="previewCard">
+            <div class="preview-image">
+                <img src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=600&fit=crop" alt="Video Thumbnail" id="previewImg">
+            </div>
+            <div class="preview-content">
+                <div class="preview-title" id="previewTitle">Amazing Video Title</div>
+                <div class="preview-meta" id="previewMeta">YouTube • 1080p • 12.5 MB</div>
+                
+                <div class="quality-section">
+                    <label class="quality-label">Select Quality</label>
+                    <select class="quality-select" id="qualitySelect">
+                        <option value="4k">4K Ultra HD (2160p)</option>
+                        <option value="1080" selected>Full HD (1080p)</option>
+                        <option value="720">HD (720p)</option>
+                        <option value="480">SD (480p)</option>
+                        <option value="360">Low (360p)</option>
+                        <option value="audio">Audio Only (MP3)</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-save" id="saveBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Save to Device
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Platform Detection Regex Patterns
+        const platformPatterns = {
+            youtube: /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/,
+            tiktok: /^(https?:\/\/)?(www\.)?(tiktok\.com)\/.+/,
+            facebook: /^(https?:\/\/)?(www\.)?(facebook\.com|fb\.watch)\/.+/
+        };
+
+        // Platform Icons SVG
+        const platformIcons = {
+            youtube: `<svg viewBox="0 0 24 24" style="fill: #ff0000;"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`,
+            tiktok: `<svg viewBox="0 0 24 24" style="fill: #ff0050;"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>`,
+            facebook: `<svg viewBox="0 0 24 24" style="fill: #1877f2;"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`
+        };
+
+        // DOM Elements
+        const urlInput = document.getElementById('urlInput');
+        const platformIndicator = document.getElementById('platformIndicator');
+        const errorMessage = document.getElementById('errorMessage');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const autoPasteBtn = document.getElementById('autoPasteBtn');
+        const inputSection = document.getElementById('inputSection');
+        const loadingSection = document.getElementById('loadingSection');
+        const previewCard = document.getElementById('previewCard');
+        const saveBtn = document.getElementById('saveBtn');
+        const successCheck = document.getElementById('successCheck');
+        const previewTitle = document.getElementById('previewTitle');
+
+        // Detect Platform
+        function detectPlatform(url) {
+            for (const [platform, pattern] of Object.entries(platformPatterns)) {
+                if (pattern.test(url)) {
+                    return platform;
+                }
+            }
+            return null;
+        }
+
+        // Update Platform Indicator
+        function updatePlatformIndicator(platform) {
+            if (platform) {
+                platformIndicator.innerHTML = platformIcons[platform];
+                platformIndicator.className = `platform-indicator active ${platform}`;
+                errorMessage.classList.remove('show');
+            } else {
+                platformIndicator.classList.remove('active');
+                setTimeout(() => {
+                    if (!detectPlatform(urlInput.value)) {
+                        platformIndicator.innerHTML = '';
+                    }
+                }, 300);
+            }
+        }
+
+        // Input Event Listener
+        urlInput.addEventListener('input', (e) => {
+            const url = e.target.value.trim();
+            const platform = detectPlatform(url);
+            updatePlatformIndicator(platform);
+            
+            if (url && !platform) {
+                errorMessage.classList.add('show');
+            } else {
+                errorMessage.classList.remove('show');
+            }
+        });
+
+        // Auto Paste Functionality
+        autoPasteBtn.addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                urlInput.value = text;
+                urlInput.focus();
+                
+                // Trigger input event manually
+                const event = new Event('input');
+                urlInput.dispatchEvent(event);
+                
+                // Visual feedback
+                autoPasteBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Pasted!
+                `;
+                setTimeout(() => {
+                    autoPasteBtn.innerHTML = `
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Auto-Paste
+                    `;
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to read clipboard:', err);
+                autoPasteBtn.style.borderColor = '#ef4444';
+                setTimeout(() => {
+                    autoPasteBtn.style.borderColor = '';
+                }, 1000);
+            }
+        });
+
+        // Download Button Click
+        downloadBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            const url = urlInput.value.trim();
+            const platform = detectPlatform(url);
+            
+            if (!url || !platform) {
+                errorMessage.classList.add('show');
+                urlInput.focus();
+                
+                // Shake animation
+                urlInput.parentElement.parentElement.style.animation = 'shake 0.5s';
+                setTimeout(() => {
+                    urlInput.parentElement.parentElement.style.animation = '';
+                }, 500);
+                return;
+            }
+
+            // Hide input, show loading
+            inputSection.style.display = 'none';
+            loadingSection.classList.add('active');
+
+            // Simulate processing
+            setTimeout(() => {
+                loadingSection.classList.remove('active');
+                
+                // Update preview based on platform
+                const titles = {
+                    youtube: 'YouTube Video',
+                    tiktok: 'TikTok Video',
+                    facebook: 'Facebook Video'
+                };
+                previewTitle.textContent = titles[platform] || 'Video';
+                
+                previewCard.classList.add('active');
+            }, 2500);
+        });
+
+        // Save Button Click
+        saveBtn.addEventListener('click', () => {
+            previewCard.style.display = 'none';
+            successCheck.classList.add('active');
+            
+            setTimeout(() => {
+                successCheck.classList.remove('active');
+                inputSection.style.display = 'block';
+                urlInput.value = '';
+                platformIndicator.classList.remove('active');
+                previewCard.classList.remove('active');
+                inputSection.style.animation = 'fadeIn 0.5s ease';
+            }, 2000);
+        });
+
+        // Form Submit Prevention
+        document.addEventListener('submit', (e) => {
+            e.preventDefault();
+        });
+
+        // Create background particles
+        function createParticles() {
+            const container = document.getElementById('particles');
+            const particleCount = 30;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+                container.appendChild(particle);
+            }
+        }
+
+        // Add shake animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-10px); }
+                75% { transform: translateX(10px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize
+        createParticles();
+
+        // Platform icon click handlers
+        document.querySelectorAll('.platform-icon').forEach(icon => {
+            icon.addEventListener('click', () => {
+                const platform = icon.classList[1];
+                const placeholders = {
+                    youtube: 'https://youtube.com/watch?v=...',
+                    tiktok: 'https://tiktok.com/@user/video/...',
+                    facebook: 'https://facebook.com/watch/...'
+                };
+                urlInput.value = placeholders[platform];
+                urlInput.focus();
+                const event = new Event('input');
+                urlInput.dispatchEvent(event);
+            });
+        });
+    </script>
+</body>
+</html>'''
+
+# Save the file
+with open('/mnt/kimi/output/tiki_downloader.html', 'w', encoding='utf-8') as f:
+    f.write(html_code)
+
+print("✅ Tiki Video Downloader created successfully!")
+print("\n📄 File saved to: /mnt/kimi/output/tiki_downloader.html")
+print("\n🎨 Features included:")
+print("   • Futuristic dark theme (#0f172a background)")
+print("   • Neon cyan & magenta accents")
+print("   • Glassmorphism search bar with glow effects")
+print("   • Auto-paste functionality")
+print("   • Platform detection (YouTube, TikTok, Facebook)")
+print("   • Animated platform icons with grayscale-to-color hover")
+print("   • Loading spinner with triple-ring animation")
+print("   • Video preview card with quality selection")
+print("   • Responsive design for all devices")
+print("   • Background particle animation")
